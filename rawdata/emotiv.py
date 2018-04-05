@@ -1,6 +1,7 @@
 import os
 import platform
 import csv, os.path
+import keyboard
 system_platform = platform.system()
 if system_platform == "Windows":
         import socket  # Needed to prevent gevent crashing on Windows. (surfly / gevent issue #459)
@@ -358,6 +359,9 @@ class Emotiv(object):
     """
     Receives, decrypts and stores packets received from Emotiv Headsets.
     """
+
+    walk_status = 0
+
     def __init__(self, display_output=True, serial_number="", is_research=False):
         """
         Sets up initial values.
@@ -391,6 +395,8 @@ class Emotiv(object):
         
         self.serial_number = serial_number  # You will need to set this manually for OS X.
         self.old_model = False
+
+
 
     def setup(self):
         """
@@ -483,7 +489,7 @@ class Emotiv(object):
             raw_input("Press Enter to continue...")
             while self.running:
                 try:
-                    gevent.sleep(0)
+                    gevent.sleep(5)
 
                 except KeyboardInterrupt:
                     self.running = False
@@ -664,7 +670,14 @@ class Emotiv(object):
         """
         self.running = False
 
+    def state_listener(self):
+
+        """ labels the data based off inputs from console"""
+
+
+
     def update_console(self):
+
         """
         Greenlet that outputs sensor, gyro and battery values once per second to the console.
         """
@@ -672,6 +685,7 @@ class Emotiv(object):
         sensor_names = []
         if self.display_output:
             while self.running:
+
                 if system_platform == "Windows":
                     os.system('cls')
                 else:
@@ -684,12 +698,21 @@ class Emotiv(object):
                 for k in enumerate(self.sensors):
                     sensor_data.append(self.sensors[k[1]]['value'])
 
-
                 for k in enumerate(self.sensors):
                     sensor_data.append(k[0])
                 print "Battery: %i" % g_battery
                 self.writer(sensor_data)
-                gevent.sleep(.001)
+                gevent.sleep(2)
+
+                if keyboard.is_pressed(1):  # if key '1' is pressed
+                    print('You Pressed A Key!')
+                    Emotiv.walk_status = 1
+
+                elif keyboard.is_pressed(0):  # if key '0' is pressed
+                    print('You Pressed A Key!')
+                    Emotiv.walk_status = 0
+                else:
+                    pass
 
                 self.writer(sensor_data)
                 sensor_data = []
@@ -701,23 +724,32 @@ class Emotiv(object):
         if os.path.exists(path_to_file) == False:
             raw_file = open(path_to_file, 'w')
             writer = csv.writer(raw_file)
-            writer.writerow(["F3, F4, F7, FC6, F7, F8, T7, P8, FC5, AF4, 02, 01, AF3"])
-            writer.writerow([data[1], data[2], data[3], data[4], data[5], data[6],
+            writer.writerow(['Y', 'X', 'F3', 'F4', 'P7', 'FC6', 'F7', 'F8', 'T7', 'P8', 'FC5', 'AF4', 'T8', '02', '01', 'AF3', 'state'])
+            writer.writerow([data[0], data[13], data[1], data[2], data[3], data[4], data[5], data[6],
                              data[7], data[8], data[9], data[10],
-                             data[12], data[13], data[14], data[15]])
+                             data[12], data[14], data[15], data[16], Emotiv.walk_status])
 
         else:
             raw_file = open(path_to_file, 'a')
             writer = csv.writer(raw_file)
-            writer.writerow([data[1], data[2], data[3], data[4], data[5], data[6],
+            writer.writerow([data[0], data[13], data[1], data[2], data[3], data[4], data[5], data[6],
                              data[7], data[8], data[9], data[10],
-                             data[12], data[13], data[14], data[15]])
-        
-         
+                             data[12], data[14], data[15], data[16], Emotiv.walk_status])
+
+
+import time
+import threading
 if __name__ == "__main__":
     a = Emotiv()
     try:
+        while 1:
+            Emotiv.walk_status = input("Press 1 for walk session or 0 for stationary session")
+
+            if (Emotiv.walk_status == 0 or Emotiv.walk_status == 1):
+                break
+
         a.setup()
+
     except KeyboardInterrupt:
         a.close()
 
